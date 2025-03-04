@@ -1,26 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
-import type { JournalResponse } from '@/types/journal';
+import type { JournalResponse, SearchResult, LocalJournalInfo } from '@/types/journal';
 import { API_CONFIG } from '@/config/constants';
+import { searchJournal, loadJournalData } from '@/utils/excelReader';
 
 export default function Home() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [result, setResult] = useState<JournalResponse | null>(null);
+  const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 预加载Excel数据
+  useEffect(() => {
+    loadJournalData();
+  }, []);
 
   const handleSearch = async () => {
     if (!searchTerm) return;
     
     setLoading(true);
     setError(null);
-    setResult(null);
+    setSearchResult(null);
     
     try {
+      // 首先搜索本地Excel数据
+      const localResult = await searchJournal(searchTerm);
+      
+      if (localResult) {
+        setSearchResult({
+          source: 'local',
+          data: localResult
+        });
+        return;
+      }
+
+      // 如果本地没有找到，则调用API
       const url = `${API_CONFIG.BASE_URL}?secretKey=${API_CONFIG.SECRET_KEY}&publicationName=${searchTerm}`;
       const response = await axios.get<JournalResponse>(url, {
         paramsSerializer: {
@@ -33,7 +51,10 @@ export default function Home() {
         return;
       }
 
-      setResult(response.data);
+      setSearchResult({
+        source: 'api',
+        data: response.data
+      });
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.data?.error) {
         setError(error.response.data.error);
@@ -44,6 +65,52 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderSearchResults = () => {
+    if (!searchResult) return null;
+
+    if (searchResult.source === 'local') {
+      const localData = searchResult.data as LocalJournalInfo;
+      return (
+        <table className="min-w-full divide-y divide-gray-600">
+          <thead>
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-semibold">字段</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold">值</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-600">
+            {Object.entries(localData).map(([key, value]) => (
+              <tr key={key} className="hover:bg-white/5">
+                <td className="px-4 py-3 text-sm">{key}</td>
+                <td className="px-4 py-3 text-sm">{value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
+
+    const apiData = searchResult.data as JournalResponse;
+    return (
+      <table className="min-w-full divide-y divide-gray-600">
+        <thead>
+          <tr>
+            <th className="px-4 py-3 text-left text-sm font-semibold">指标</th>
+            <th className="px-4 py-3 text-left text-sm font-semibold">数值</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-600">
+          {Object.entries(apiData.data.officialRank.all).map(([key, value], index) => (
+            <tr key={index} className="hover:bg-white/5">
+              <td className="px-4 py-3 text-sm">{key}</td>
+              <td className="px-4 py-3 text-sm">{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
   };
 
   return (
@@ -100,7 +167,7 @@ export default function Home() {
             </motion.div>
           )}
 
-          {result && (
+          {searchResult && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -108,22 +175,7 @@ export default function Home() {
               className="mt-8 bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20"
             >
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-600">
-                  <thead>
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold">指标</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold">数值</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-600">
-                    {Object.entries(result.data.officialRank.all).map(([key, value], index) => (
-                      <tr key={index} className="hover:bg-white/5">
-                        <td className="px-4 py-3 text-sm">{key}</td>
-                        <td className="px-4 py-3 text-sm">{value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                {renderSearchResults()}
               </div>
             </motion.div>
           )}
