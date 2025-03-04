@@ -27,9 +27,9 @@ export async function searchJournal(searchTerm: string): Promise<LocalJournalInf
   const searchTermLower = searchTerm.toLowerCase().trim();
   
   return data.find(journal => 
-    journal.Name.toLowerCase().includes(searchTermLower) ||
-    journal['Abbr Name'].toLowerCase().includes(searchTermLower) ||
-    journal.ISSN.includes(searchTerm) ||
-    journal.EISSN.includes(searchTerm)
+    journal.Name.toLowerCase().includes(searchTermLower) 
+    // || journal['Abbr Name'].toLowerCase().includes(searchTermLower) ||
+    // journal.ISSN.includes(searchTerm) ||
+    // journal.EISSN.includes(searchTerm)
   ) || null;
 } 

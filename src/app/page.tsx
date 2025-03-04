@@ -2,17 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
 import type { JournalResponse, SearchResult, LocalJournalInfo } from '@/types/journal';
 import { API_CONFIG } from '@/config/constants';
 import { searchJournal, loadJournalData } from '@/utils/excelReader';
+import SettingsModal from '@/components/SettingsModal';
 
 export default function Home() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState({
+    secretKey: API_CONFIG.SECRET_KEY || '',
+  });
 
   // 预加载Excel数据
   useEffect(() => {
@@ -39,7 +44,7 @@ export default function Home() {
       }
 
       // 如果本地没有找到，则调用API
-      const url = `${API_CONFIG.BASE_URL}?secretKey=${API_CONFIG.SECRET_KEY}&publicationName=${searchTerm}`;
+      const url = `${API_CONFIG.BASE_URL}?secretKey=${settings.secretKey}&publicationName=${searchTerm}`;
       const response = await axios.get<JournalResponse>(url, {
         paramsSerializer: {
           encode: (param: string) => param
@@ -66,6 +71,20 @@ export default function Home() {
       setLoading(false);
     }
   };
+
+  const handleSaveSettings = (newSettings: { secretKey: string }) => {
+    setSettings(newSettings);
+    // 可以选择将设置保存到 localStorage
+    localStorage.setItem('journalSearchSettings', JSON.stringify(newSettings));
+  };
+
+  // 加载保存的设置
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('journalSearchSettings');
+    if (savedSettings) {
+      setSettings(JSON.parse(savedSettings));
+    }
+  }, []);
 
   const renderSearchResults = () => {
     if (!searchResult) return null;
@@ -115,7 +134,16 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 text-white">
-      <div className="container mx-auto px-4 py-16">
+      <div className="container mx-auto px-4 py-16 relative">
+        {/* 设置按钮 */}
+        <button
+          onClick={() => setIsSettingsOpen(true)}
+          className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors border border-white/20"
+          title="设置"
+        >
+          <Cog6ToothIcon className="h-6 w-6 text-white" />
+        </button>
+
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -181,6 +209,13 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSave={handleSaveSettings}
+        currentSettings={settings}
+      />
     </main>
   );
 }
