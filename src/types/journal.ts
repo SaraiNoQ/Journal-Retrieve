@@ -12,7 +12,7 @@ export interface JournalResponse {
       rank: RankInfo[];
     };
     officialRank: {
-      all: Record<string, string>;
+      all: Record<string, string> | null;
       select: Record<string, string>;
     };
   };

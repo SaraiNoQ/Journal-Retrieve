@@ -10,14 +10,23 @@ import { searchJournal, loadJournalData } from '@/utils/excelReader';
 import SettingsModal from '@/components/SettingsModal';
 
 export default function Home() {
+  // 初始化时就从 localStorage 读取设置
+  const initialSettings = (() => {
+    if (typeof window !== 'undefined') {
+      const savedSettings = localStorage.getItem('journalSearchSettings');
+      if (savedSettings) {
+        return JSON.parse(savedSettings);
+      }
+    }
+    return { secretKey: API_CONFIG.SECRET_KEY || '' };
+  })();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState({
-    secretKey: API_CONFIG.SECRET_KEY || '',
-  });
+  const [settings, setSettings] = useState(initialSettings);
 
   // 预加载Excel数据
   useEffect(() => {
@@ -74,17 +83,8 @@ export default function Home() {
 
   const handleSaveSettings = (newSettings: { secretKey: string }) => {
     setSettings(newSettings);
-    // 可以选择将设置保存到 localStorage
     localStorage.setItem('journalSearchSettings', JSON.stringify(newSettings));
   };
-
-  // 加载保存的设置
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('journalSearchSettings');
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
-    }
-  }, []);
 
   const renderSearchResults = () => {
     if (!searchResult) return null;
@@ -112,6 +112,15 @@ export default function Home() {
     }
 
     const apiData = searchResult.data as JournalResponse;
+    if (!apiData.data.officialRank.all) {
+      return (
+        <div className="text-center py-8 text-gray-300">
+          <p className="text-lg font-bold">没有搜索到对应期刊</p>
+          <p className="text-sm mt-2">请尝试使用其他关键词搜索</p>
+        </div>
+      );
+    }
+
     return (
       <table className="min-w-full divide-y divide-gray-600">
         <thead>
