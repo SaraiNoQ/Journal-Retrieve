@@ -8,7 +8,7 @@ export async function loadJournalData(): Promise<LocalJournalInfo[] | null> {
   if (journalData) return journalData;
   if (loadingPromise) return loadingPromise;
 
-  loadingPromise = new Promise((resolve, reject) => {
+  loadingPromise = new Promise<LocalJournalInfo[] | null>((resolve) => {
     if (typeof window === 'undefined') {
       resolve(null);
       return;
